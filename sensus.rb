@@ -18,12 +18,12 @@ st.execute.collect do |r|
   kurslista[kurs][kurspass] << who
 end
 
-kl = db.prepare("SELECT DISTINCT kurs,namn,personnummer,email,mobil FROM deltagare INNER JOIN kursledare ON deltagare.id = kursledare.id ORDER BY kurs;")
+kl = db.prepare("SELECT DISTINCT kurs,namn,personnummer,email,mobil FROM deltagare INNER JOIN kursledare ON deltagare.id = kursledare.deltagare ORDER BY kurs;")
 
 kursledare = Hash.new { |h,k| h[k] = [] }
 
 kl.execute.each do |r|
-  kurs,*who
+  kurs,*who = r
   kursledare[kurs] << who
 end
 
@@ -31,47 +31,56 @@ def max(a,b)
   a < b ? b : a
 end
 
-OFFSET = 3
+def fill_sheet(ws, title, columns, data)
+
+  w = Array.new(columns.length, 10)
+
+  rubrik = ws.add_cell(0, 0, title)
+  rubrik.change_font_bold(true)
+  rubrik.change_font_size((1.2*rubrik.font_size).to_i)
+
+  offset = 3
+
+  columns.each_with_index do |text,col|
+    cell = ws.add_cell(offset, col, text)
+    cell.change_font_bold(true)
+    [:bottom,:left,:right].each do |border|
+      cell.change_border(border, 'thin')
+    end
+    w[col] = max(w[col], (1.3*text.length).to_i)
+  end
+
+  data.each_with_index do |d, row|
+    d.each_with_index do |val, col|
+      cell = ws.add_cell(offset + row + 1, col, val)
+      [:top,:bottom,:left,:right].each do |border|
+        cell.change_border(border, 'thin')
+      end
+      w[col] = max(w[col], (val || "").length)
+    end
+  end
+  w.each_with_index { |width,col| ws.change_column_width(col, width) }
+end
 
 kurslista.each do |kurs,kurspass|
+
+  next unless kursledare.has_key? kurs
+
   xlsx = RubyXL::Workbook.new
   xlsx.worksheets.delete_at(0)
 
+  cols = ["Namn", "Personnummer", "E-post", "Telefonnummer"]
+
+  klws = xlsx.add_worksheet("Kursledare")
+  fill_sheet(klws, "Kursledare", cols, kursledare[kurs])
+
   kurspass.each do |pass, deltagare|
-
     ws = xlsx.add_worksheet("Kurspass #{pass}")
-
-    w = [ 10, 10, 10, 10, 10 ]
-
-    rubrik = ws.add_cell(0, 0, kurs)
-    rubrik.change_font_bold(true)
-    rubrik.change_font_size((1.2*rubrik.font_size).to_i)
-    ws.add_cell(1, 0, "kurspass: #{pass}")
-    
-    ["Namn", "Personnummer", "E-post", "Telefonnummer"].each_with_index do |text,col| 
-      cell = ws.add_cell(OFFSET, col, text)
-      cell.change_font_bold(true)
-      [:bottom,:left,:right].each do |border|
-        cell.change_border(border, 'thin')
-      end
-      w[col] = max(w[col], (1.3*text.length).to_i)
-    end
-    
-    deltagare.each_with_index do |d, row|
-      d.each_with_index do |val, col|
-        cell = ws.add_cell(OFFSET + row + 1, col, val)
-        [:top,:bottom,:left,:right].each do |border|
-          cell.change_border(border, 'thin')
-        end
-        w[col] = max(w[col], (val || "").length)
-      end
-    end
-
-    w.each_with_index { |width,col| ws.change_column_width(col, width) }
+    fill_sheet(ws, "Kurspass #{pass}", cols, deltagare)
   end
 
-  fil = kurs.gsub(/[\/ :?.,]/,'_')
-  
+  fil = kurs.gsub(/[\/ :?.,()]/,'_')
+
   xlsx.write(File.join("sensus", "#{fil}.xlsx"))
 end
 
