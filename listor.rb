@@ -31,6 +31,8 @@ kurslista.each do |kurs,kurspass|
 
   kurspass.each do |pass, deltagare|
 
+    next if deltagare.empty?
+
     ws = xlsx.add_worksheet("Kurspass #{pass}")
 
     w = [ 10, 10, 10 ]
