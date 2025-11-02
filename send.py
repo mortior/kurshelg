@@ -19,6 +19,24 @@ receiver = "XXX"
 def firstname(name):
     return name.split(' ')[0]
 
+
+def info(kurs):
+    name, slot = kurs
+    if slot == '1-5':
+        return name
+    elif slot == '1-3':
+        return f'{name} på lördag'
+    elif slot == '4-5':
+        return f'{name} på söndag'
+    else:
+        return f'{name} i kurspass {slot}'
+
+
+def combine(seq):
+    *top, last = seq
+    return ", ".join(top) + ' och ' + last
+
+
 template = """\
 <html>
 <head></head>
@@ -50,8 +68,8 @@ vänligen lämna parfymer och bullar hemma.
 
 <h3>Parkering</h3>
 <p>
-Om du kommer med bil rekommenderar vi Idrottshusets parkering. Enligt uppgift
-är den avgiftsfri under lördagar och söndagar. Därifrån är det en promenad på
+Om du kommer med bil rekommenderar vi Idrottshusets parkering, den är
+avgiftsfri under lördagar och söndagar. Från parkeringen är det en promenad på
 c:a 200 meter till Westerlundska gymnasiet.
 </p>
 <h3>Bussar</h3>
@@ -59,9 +77,9 @@ c:a 200 meter till Westerlundska gymnasiet.
 Om du kommer med buss, tag bussen till Enköpings station, byt där till buss 22
 mot Centrum (läge B2) och åk till Westerlundska gymnasiet. Om du kommer från
 Uppsala är det buss 804. Vi rekommenderar bussen som går från Resecentrum i
-Uppsala klockan 7.28, den är vid Enköpings station klockan 8.28. Om du kommer
+Uppsala klockan 7.28, den är vid Enköpings station klockan 8.20. Om du kommer
 från Bålsta är det buss 803. Vi rekommenderar bussen som går från Bålsta
-station klockan 7.47, den är vid Enköpings station klockan 8.19.
+station klockan 7.47, den är vid Enköpings station klockan 8.18.
 </p>
 <h3>Ankomst</h3>
 <p>
@@ -97,13 +115,15 @@ with open("program-2025.pdf", "rb") as p:
     program = p.read()
 
 
-con = sqlite3.connect('uk241104.sqlite')
+con = sqlite3.connect('uk251101.sqlite')
 cur = con.cursor()
+cur.execute('SELECT id, namn, email, logi FROM deltagare')
+rows = cur.fetchall()
 
-for row in cur.execute('SELECT * FROM kurslista'):
-    pnr,name,mail,courses,logi = row
+for row in rows:
+    memid, name, mail, logi = row
 
-    print(name,mail)
+    print(name, mail)
 
     if logi == 'golvförläggning':
         logimsg = "<h3>Logi</h3><p>Du har anmält golvförläggning, tag med dig sovutrustning för det.</p>"
@@ -112,12 +132,19 @@ for row in cur.execute('SELECT * FROM kurslista'):
     else:
         logimsg = ''
 
-    if ',' in courses:
-        kurs = "kurserna " + courses
-    else:
-        kurs = "kursen " + courses
+    cur.execute(f'SELECT kurs, kurspass FROM kurser WHERE deltagare = "{memid}"')
+    courses = [info(kurs) for kurs in cur]
 
-    if courses == 'Leda scouting' or courses == 'Leda avdelning':
+    if not courses:
+        print(f"INGEN KURS FÖR {name}")
+        continue
+
+    if len(courses) == 1:
+        kurs = 'kursen ' + courses[0]
+    else:
+        kurs = 'kurserna ' + combine(courses)
+
+    if courses[0] == 'Leda scouting':
         skola = ''
     else:
         skola = ' i samarbete med Sensus'
@@ -132,7 +159,7 @@ for row in cur.execute('SELECT * FROM kurslista'):
 
     msg.set_content(text)
     msg.add_alternative(html, subtype="html")
-    msg.add_attachment(program, maintype="application", subtype="pdf", filename="program-2024.pdf")
+    msg.add_attachment(program, maintype="application", subtype="pdf", filename="program-2025.pdf")
 
     # Create a secure SSL context
     context = ssl.create_default_context()
