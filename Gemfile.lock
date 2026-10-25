@@ -1,0 +1,21 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    nokogiri (1.19.4-x86_64-linux-gnu)
+      racc (~> 1.4)
+    racc (1.7.3)
+    rubyXL (3.4.38)
+      nokogiri (>= 1.10.8)
+      rubyzip (>= 3.2.2)
+    rubyzip (3.7.0)
+    sqlite3 (2.10.1-x86_64-linux-gnu)
+
+PLATFORMS
+  x86_64-linux-gnu
+
+DEPENDENCIES
+  rubyXL
+  sqlite3
+
+BUNDLED WITH
+   2.6.7

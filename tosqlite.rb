@@ -76,49 +76,44 @@ end
 #   "Återbrukspyssel" => "4"
 # }
 
-KURSPASS25 = {
-"Bandvävning (kurspass 1)" => "1",
-"Bandvävning (kurspass 2)" => "2",
-"Bandvävning (kurspass 3)" => "3",
-"Barn utanför boxen" => "1-5",
-"Bildstöd – för att en bild säger mer än 1 000 ord (kurspass 1)" => "1",
-"Bildstöd – för att en bild säger mer än 1 000 ord (kurspass 5)" => "5",
-"Grundutbildning i vuxen-HLR (kurspass 1)" => "1",
-"Grundutbildning i vuxen-HLR (kurspass 3)" => "3",
-"Hur du skapar spännande sjukvårdsmöten för scouterna" => "4-5",
-"Hur förmedlar vi scoutings värderingar?" => "1-5",
-"Hållbar mat i scoutverksamhet" => "2-3",
-"Intro Scouternas program" => "4",
-"Korgflätning (kurspass 4)" => "4",
-"Korgflätning (kurspass 5)" => "5",
-"Leda scouting" => "1-5",
-"Luffarslöjd (kurspass 4)" => "4",
-"Luffarslöjd (kurspass 5)" => "5",
-"Lär dig sticka" => "2-3",
-"Mat, mellis och Muurikka (kurspass 1)" => "1",
-"Mat, mellis och Muurikka (kurspass 4)" => "4",
-"Nåltovning (kurspass 4)" => "4",
-"Nåltovning (kurspass 5)" => "5",
-"Praktisk scouting för (nya) ledare" => "1-3",
-"Praktisk utbildning i kniv- och yxslipning" => "3",
-"Repslagning (kurspass 1)" => "1",
-"Repslagning (kurspass 4)" => "4",
-"Scoutmetoden (kurspass 1)" => "1",
-"Scoutmetoden (kurspass 5)" => "5",
-"Tagling – splitsning (kurspass 2)" => "2",
-"Tagling – splitsning (kurspass 5)" => "5",
-"Trygga möten: fördjupning" => "2",
-"Tälja i färskt trä (kurspass 1)" => "1",
-"Tälja i färskt trä (kurspass 2)" => "2",
-"Workshop: Enkla läderhantverk (kurspass 4)" => "4",
-"Workshop: Enkla läderhantverk (kurspass 5)" => "5",
-"Workshop: Lekar för alla åldrar" => "3",
-"Workshop: Makramé i hundra knutar (kurspass 1)" => "1",
-"Workshop: Makramé i hundra knutar (kurspass 2)" => "2",
-"Workshop: Makramé i hundra knutar (kurspass 3)" => "3",
-"Våttovning (kurspass 3)" => "3",
-"Våttovning (kurspass 4)" => "4"
-}
+# Compress a list of slot numbers to the notation used in the database,
+# e.g. [1] => "1", [4,5] => "4-5", [1,4] => "1,4"
+def format_pass(passes)
+  passes = passes.collect(&:to_i).sort.uniq
+  if passes.size > 1 && passes.last - passes.first + 1 == passes.size
+    "#{passes.first}-#{passes.last}"
+  else
+    passes.join(',')
+  end
+end
+
+# Derive which slots (kurspass) each course is held in from the registration
+# form. Returns { course name => [slot numbers] }.
+def courses_from_anmalan(rows)
+  courses = Hash.new { |h,k| h[k] = [] }
+  rows.each do |row|
+    row.each do |col, val|
+      next unless val.is_a?(String) && !val.empty? && val !~ /^Ej intresserad/
+      case col
+      when /Kortare kurser (?:lördag|söndag), kurspass (\d)/
+        courses[val.strip] |= [$1.to_i]
+      when /Kurser - Leda scouting$/
+        courses[val.strip] |= [1, 2, 3, 4, 5]
+      when /Kurser - Heldagskurser söndag$/
+        courses[val.strip] |= [4, 5]
+      end
+    end
+  end
+  courses
+end
+
+# Find the course name (as spelled in the registration form) that a name from
+# the report refers to; the report differs in case and may have a suffix.
+def canonical_course(name, courses)
+  down = name.downcase
+  courses.keys.find { |c| c.downcase == down } ||
+    courses.keys.select { |c| down.start_with?(c.downcase) }.max_by(&:size)
+end
 
 RAPPORT = [ "Medlemsnummer", "Namn", "Kön", "Personnummer", "E-post", "Mobiltelefon", "Adress", "Postnummer", "Postort", "Anmäld", "Närvaro" ]
 
@@ -178,6 +173,8 @@ SQL
 
 
 deltagare = read_file(rapport)
+anmalan_rows = read_file(anmalan)
+courses = courses_from_anmalan(anmalan_rows)
 
 db.transaction do |t|
   st = t.prepare("INSERT INTO rapport VALUES(?,?,?,?,?,?,?,?,?,?,?);")
@@ -197,19 +194,21 @@ db.transaction do |t|
     id = row["Medlemsnummer"]
     row.each do |k,v|
       if k =~ /Anm.*ld till (.*)/ && v == "Ja"
-        pass = KURSPASS25[$1]
-        namn = $1.sub(/ \(kurspass \d\)/,'')
-        st.execute([id, namn, pass])
+        rapport_namn = $1
+        suffix = rapport_namn[/ \(kurspass (\d)\)$/, 1]
+        namn = rapport_namn.sub(/ \(kurspass \d\)$/, '')
+        kurs = canonical_course(namn, courses) or
+          raise "Kursen '#{namn}' finns inte i anmälningsformuläret"
+        pass = format_pass(suffix ? [suffix] : courses[kurs])
+        st.execute([id, kurs, pass])
       end
     end
   end
 end
 
-kurser = KURSPASS25.keys.collect do |kurs|
-  kurs.sub(/ \(kurspass \d\)/, '')
-end.sort.uniq
+kurser = courses.keys.sort
 
-deltagare = read_file(anmalan)
+deltagare = anmalan_rows
 
 
 db.transaction do |t|
@@ -217,7 +216,7 @@ db.transaction do |t|
   st = t.prepare("INSERT INTO kursledare VALUES(?,?);")
   deltagare.each do |row|
     id = row["Medlemsnummer"]
-    k = row['Grundläggande - Vilken eller vilka kurser ska du leda?']
+    k = row['Grund - Vilken eller vilka kurser ska du leda?']
     next unless k
     if k =~ re
       k.split(/, /).each { |kk| st.execute([id, kk]) }
@@ -234,17 +233,17 @@ db.transaction do |t|
     kar = row["Kår"]
     avg = $1 if row["Deltagaravgift"] =~ /(.*):.*/
 
-    dagar = (row["Grundläggande - Lördag eller söndag?"] || '-').downcase
+    dagar = (row["Grund - Lördag eller söndag?"] || '-').downcase
     dagar = "lördag,söndag" if dagar == "-"
 
-    fredag = (row["Grundläggande - Kommer du redan på fredag kväll?"] == "Ja") ? 1 : 0
+    fredag = (row["Grund - Kommer du redan på fredag kväll?"] == "Ja") ? 1 : 0
     lordag = (dagar =~ /lördag/) ? 1 : 0
     sondag = (dagar =~ /söndag/) ? 1 : 0
 
-    funktion = row["Grundläggande - Vilken är din huvudsakliga funktion på Upplandskurserna?"]
+    funktion = row["Grund - Vilka är dina huvudsakliga funktioner på Upplandskurserna?"]
     funktion = nil if funktion == "-"
 
-    allergi = row["Allergiinformation och matpreferenser - Okej, vilka då?"]
+    allergi = row["Mat - Okej, vilka då?"]
     allergi = nil if allergi == "-"
 
     logi = row["Logi - Välj logiform"]
@@ -252,8 +251,7 @@ db.transaction do |t|
     logi.downcase! if logi != nil
     logi = nil if logi == "-"
 
-    kompisar = row["Logi - Ange rumskompisar"]
-    kompisar = row[ "Logi - Ange rumskompis"] if kompisar == '-'
+    kompisar = row["Logi - Ange rumskompis"]
     kompisar = nil if kompisar == '-'
     
     st.execute([id, kar, avg, fredag,lordag,sondag, funktion, allergi, logi, kompisar])
