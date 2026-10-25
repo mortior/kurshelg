@@ -2,3 +2,5 @@ data/
 listor/
 sensus/
 *.sqlite
+.venv/
+utkast/
