@@ -1,4 +1,4 @@
-# Upplandskurserna
+# Kurshelg
 
 Scripts for the administration around the Upplandskurserna weekend (Scouterna
 Uppland): turn the exports from the registration system into a database,
