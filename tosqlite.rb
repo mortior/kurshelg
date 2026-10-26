@@ -1,6 +1,17 @@
 #! /usr/bin/ruby
 # coding: utf-8
 
+# Builds the sqlite database from the two Excel reports exported from Scoutnet:
+#   rapport  - the report "Alla arrangemangsdeltagare"
+#   anmalan  - the report "Anmälan till kurshelgen"
+#
+#   tosqlite.rb RAPPORT ANMALAN OUTPUT.sqlite
+#
+# The scripts assume the data is in the format produced by the Scoutnet
+# activity "Upplandskurserna 2026" (column names and form questions are used
+# literally below). If the activity is set up differently this script must be
+# changed.
+
 require 'rubygems'
 
 require 'sqlite3'
@@ -15,66 +26,6 @@ def read_file(file)
 
   rows.collect { |r| head.zip(r).to_h }
 end
-
-# KURSPASS23 = { "Tälja i färskt trä (kurspass 1)" => "1",
-#                "Tovning: våttovning (kurspass 2)" => "2",
-#                "Tovning: torrtovning (kurspass 3)" => "3",
-#                "Workshop i tal och pondus (kurspass 1)" => "1",
-#                "Tenngjutning" => "2",
-#                "Läderhantverk" => "4-5",
-#                "Leda scouting" => "1-5",
-#                "Tovning: torrtovning (kurspass 2)" => "2",
-#                "Repslagning" => "1",
-#                "Tälja i färskt trä (kurspass 2)" => "2",
-#                "Slipa kniv och yxa" => "3",
-#                "Tälja advanced" => "4-5",
-#                "Återbrukspyssel" => "4",
-#                "Paracord (kurspass 5)" => "5",
-#                "Tovning: våttovning (kurspass 1)" => "1",
-#                "Sjukvård för scoutledare" => "2-3",
-#                "Grundutbildning i vuxen-HLR (kurspass 4)" => "4",
-#                "Workshop i tal och pondus (kurspass 5)" => "5",
-#                "Tagling - splitsning" => "2",
-#                "Paracord (kurspass 3)" => "3",
-#                "Tenntrådsarmband" => "4",
-#                "Luffarslöjd (kurspass 5)" => "5",
-#                "Trygga möten: fördjupning" => "4",
-#                "Grundutbildning i vuxen-HLR (kurspass 5)" => "5",
-#                "Lär dig sticka" => "1-3",
-#                "Luffarslöjd (kurspass 2)" => "2",
-#                "Workshop: Ditt bästa knopmöte" => "3",
-#                "Intro Scouternas program" => "1",
-#                "Barn utanför boxen" => "1-5" }
-
-# KURSPASS24 = {
-#   "Leda scouting" => "1-5",
-#   "Leda avdelning" => "1-5",
-#   "Leda kår" => "1-5",
-#   "Barn utanför boxen" => "1-5",
-#   "Grundutbildning i vuxen-HLR (kurspass 1)" => "1",
-#   "Grundutbildning i vuxen-HLR (kurspass 3)" => "3",
-#   "Bildstöd - för att en bild säger mer än 1 000 ord (kurspass 3)" => "3",
-#   "Bildstöd - för att en bild säger mer än 1 000 ord (kurspass 5)" => "5",
-#   "Hur du skapar spännande sjukvårdsmöten för scouterna" => "1-2",
-#   "Hur man arrangerar scoutarrangemang i fjällen (sommartid)" => "5",
-#   "Intro Scouternas program" => "5",
-#   "Luffarslöjd (kurspass 2)" => "2",
-#   "Luffarslöjd (kurspass 3)" => "3",
-#   "Läderhantverk" => "4-5",
-#   "Lär dig sticka" => "2-3",
-#   "Praktisk scouting för (nya) ledare" => "1-3",
-#   "Repslagning (kurspass 1)" => "1",
-#   "Repslagning (kurspass 4)" => "4",
-#   "Scoutmetoden" => "1",
-#   "Slipa kniv och yxa" => "3",
-#   "Tagling - Splitsning" => "2",
-#   "Tenntrådsarmband" => "4",
-#   "Trygga möten: fördjupning" => "4",
-#   "Tälja i fäskt trä (kurspass 1)" => "1",
-#   "Tälja i fäskt trä (kurspass 2)" => "2",
-#   "Ukulele för nybörjare" => "1-3",
-#   "Återbrukspyssel" => "4"
-# }
 
 # Compress a list of slot numbers to the notation used in the database,
 # e.g. [1] => "1", [4,5] => "4-5", [1,4] => "1,4"

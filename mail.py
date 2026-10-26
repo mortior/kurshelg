@@ -31,11 +31,11 @@ from pathlib import Path
 import html2text
 
 PORT = 465  # For SSL
-IDENTITY = "XXX"
+IDENTITY = "account@example.com"
 PASSWORD = "XXX"
 # The visible sender, as "Name <account@domain>". The address must be IDENTITY
 # or one of its aliases in Google Workspace.
-SENDER = "Upplandskurserna <sender@example.com>"
+SENDER = "Sender Name <sender@example.com>"
 
 XLSX_TYPE = "vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
