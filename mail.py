@@ -26,7 +26,6 @@ import sqlite3
 import time
 
 from email.message import EmailMessage
-from email.headerregistry import Address
 from pathlib import Path
 
 import html2text
@@ -34,6 +33,9 @@ import html2text
 PORT = 465  # For SSL
 IDENTITY = "XXX"
 PASSWORD = "XXX"
+# The visible sender, as "Name <account@domain>". The address must be IDENTITY
+# or one of its aliases in Google Workspace.
+SENDER = "Upplandskurserna <sender@example.com>"
 
 XLSX_TYPE = "vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
@@ -85,7 +87,7 @@ def make_message(subject, to, html, program):
     """program is the path of the pdf to attach"""
     msg = EmailMessage()
     msg['Subject'] = subject
-    msg['From'] = Address("Upplandskurserna", "sender", "example.com")
+    msg['From'] = SENDER
     msg['To'] = to
 
     msg.set_content(html2text.html2text(html))
